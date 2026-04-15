@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>16:8 단식 타이머</title>
+<meta name="theme-color" content="#0f9e6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="단식 타이머">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --surface: #f8f8f6; --surface2: #f0efea;
+  --border: #e0ddd6; --text: #1a1a1a; --muted: #888880;
+  --teal: #0f9e6e; --teal-dim: #d0f5e8; --teal-dark: #0a6644;
+  --amber: #b87000; --amber-dim: #fdf0d5;
+  --r: 12px;
+}
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Gowun Dodum', sans-serif;
+  min-height: 100vh; padding: 1rem;
+}
+
+/* Layout */
+.layout {
+  max-width: 820px; margin: 0 auto;
+  display: grid; grid-template-columns: 310px 1fr; gap: 12px; align-items: start;
+}
+@media(max-width: 660px){
+  body { padding: 0.75rem; }
+  .layout { grid-template-columns: 1fr; }
+}
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem 1.25rem; }
+
+/* Timer card */
+.header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 1.25rem; }
+.header h1 { font-size: 15px; font-weight: 400; color: var(--muted); letter-spacing: 0.05em; }
+.badge { font-family: 'DM Mono', monospace; font-size: 11px; background: var(--teal-dim); color: var(--teal-dark); padding: 2px 8px; border-radius: 20px; }
+
+.ring-wrap { position: relative; width: 180px; height: 180px; margin: 0 auto 1.25rem; }
+.ring-wrap svg { transform: rotate(-90deg); }
+.ring-fg { transition: stroke-dashoffset 1s linear, stroke 0.4s; stroke-linecap: round; }
+.ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+.ring-phase { font-size: 12px; color: var(--muted); }
+.ring-time { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--text); letter-spacing: -1px; }
+.ring-end { font-size: 11px; color: var(--muted); }
+
+.mode-row { display: flex; gap: 8px; margin-bottom: 0.875rem; }
+.mode-btn { flex: 1; padding: 10px 0; font-size: 13px; font-family: 'Gowun Dodum', sans-serif; border-radius: var(--r); cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all 0.2s; }
+.mode-btn.active-fast { border-color: var(--teal); background: var(--teal-dim); color: var(--teal-dark); }
+.mode-btn.active-eat { border-color: var(--amber); background: var(--amber-dim); color: #8a5500; }
+
+.input-group { margin-bottom: 8px; }
+.input-group label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+.input-group input[type=time] {
+  width: 100%; padding: 10px 12px; font-size: 14px;
+  font-family: 'DM Mono', monospace;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r);
+  outline: none; color-scheme: light;
+}
+
+.btn-primary { width: 100%; padding: 12px; margin-top: 10px; font-size: 14px; font-family: 'Gowun Dodum', sans-serif; background: var(--teal); color: #fff; border: none; border-radius: var(--r); cursor: pointer; transition: opacity 0.2s; }
+.btn-primary:active { opacity: 0.8; }
+.btn-reset { width: 100%; padding: 9px; margin-top: 6px; font-size: 12px; font-family: 'Gowun Dodum', sans-serif; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; }
+
+.progress-wrap { margin-top: 1rem; }
+.progress-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+.progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 2px; transition: width 1s linear, background 0.4s; }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 0.875rem; }
+.stat { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; text-align: center; }
+.stat-val { font-family: 'DM Mono', monospace; font-size: 15px; color: var(--text); }
+.stat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.done-msg { text-align: center; font-size: 13px; color: var(--teal-dark); margin-top: 8px; min-height: 18px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.tab { flex: 1; padding: 9px 0; font-size: 11px; font-family: 'Gowun Dodum', sans-serif; border: 1px solid var(--border); border-radius: var(--r); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.2s; }
+.tab.active { border-color: var(--teal); color: var(--teal-dark); background: var(--teal-dim); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Milestones */
+.milestone-list { display: flex; flex-direction: column; gap: 8px; }
+.milestone { display: flex; align-items: flex-start; gap: 12px; padding: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); transition: border-color 0.3s, background 0.3s; }
+.milestone.reached { border-color: var(--teal); }
+.milestone.current { border-color: var(--amber); background: #fffae8; }
+.ms-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.ms-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.ms-hour { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.ms-badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+.ms-badge.reached { background: var(--teal-dim); color: var(--teal-dark); }
+.ms-badge.current { background: var(--amber-dim); color: #8a5500; }
+.ms-badge.upcoming { background: #eeede8; color: var(--muted); border: 1px solid var(--border); }
+.ms-title { font-size: 13px; color: var(--text); margin-bottom: 2px; }
+.ms-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+/* Meal log */
+.date-selector { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); }
+.date-selector label { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+.date-selector input[type=date] { flex: 1; font-size: 13px; font-family: 'DM Mono', monospace; background: transparent; color: var(--text); border: none; outline: none; color-scheme: light; }
+.date-today-btn { font-size: 11px; color: var(--teal-dark); background: var(--teal-dim); border: none; border-radius: 8px; padding: 3px 8px; cursor: pointer; font-family: 'Gowun Dodum', sans-serif; white-space: nowrap; }
+
+.type-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.type-btn { flex: 1; padding: 8px 0; font-size: 12px; font-family: 'Gowun Dodum', sans-serif; border-radius: var(--r); cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all 0.2s; }
+.type-btn.active { border-color: var(--teal); background: var(--teal-dim); color: var(--teal-dark); }
+
+.meal-input-row { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.meal-input-row input[type=text] { flex: 1; min-width: 100px; padding: 9px 11px; font-size: 13px; font-family: 'Gowun Dodum', sans-serif; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); outline: none; }
+.meal-input-row input[type=number] { width: 68px; padding: 9px 8px; font-size: 13px; font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); outline: none; }
+.meal-input-row input[type=time] { width: 90px; padding: 9px 6px; font-size: 12px; font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); outline: none; color-scheme: light; }
+.meal-input-row button { padding: 9px 14px; font-size: 13px; font-family: 'Gowun Dodum', sans-serif; background: var(--teal); color: #fff; border: none; border-radius: var(--r); cursor: pointer; }
+
+.meal-items { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; min-height: 36px; }
+.meal-item { display: flex; align-items: center; gap: 8px; padding: 9px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); }
+.meal-item-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.meal-item-name { flex: 1; font-size: 13px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meal-item-kcal { font-family: 'DM Mono', monospace; font-size: 12px; flex-shrink: 0; }
+.meal-item-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; flex-shrink: 0; }
+
+.meal-total-box { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); }
+.meal-total-info { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.meal-total-net { font-family: 'DM Mono', monospace; font-size: 20px; color: var(--amber); }
+
+/* History */
+.history-date-item { margin-bottom: 18px; }
+.history-date-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.history-date-label { font-size: 13px; font-weight: 500; color: var(--text); }
+.history-date-summary { font-size: 11px; color: var(--muted); text-align: right; line-height: 1.5; }
+.history-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.history-row:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- LEFT: Timer -->
+  <div class="card">
+    <div class="header">
+      <h1>간헐적 단식</h1>
+      <span class="badge">16 : 8</span>
+    </div>
+
+    <div class="ring-wrap">
+      <svg width="180" height="180" viewBox="0 0 180 180">
+        <circle cx="90" cy="90" r="78" fill="none" stroke="var(--border)" stroke-width="10"/>
+        <circle class="ring-fg" id="ring-fg" cx="90" cy="90" r="78" fill="none" stroke-width="10"
+          stroke="#0f9e6e" stroke-dasharray="490.1" stroke-dashoffset="490.1"/>
+      </svg>
+      <div class="ring-center">
+        <span class="ring-phase" id="ring-phase">대기 중</span>
+        <span class="ring-time" id="ring-time">--:--:--</span>
+        <span class="ring-end" id="ring-end">시작해주세요</span>
+      </div>
+    </div>
+
+    <div class="mode-row">
+      <button class="mode-btn" id="btn-fast" onclick="startNow('fast')">단식 시작</button>
+      <button class="mode-btn" id="btn-eat" onclick="startNow('eat')">식사 시작</button>
+    </div>
+
+    <div class="input-group">
+      <label>단식 시작 시간</label>
+      <input type="time" id="fast-start" value="19:20">
+    </div>
+    <div class="input-group">
+      <label>식사 시작 시간 (자동)</label>
+      <input type="time" id="eat-start" value="11:20" readonly style="opacity:0.5;cursor:default;">
+    </div>
+
+    <button class="btn-primary" onclick="startFromSchedule()">⏱ 스케줄로 시작</button>
+    <button class="btn-reset" onclick="resetTimer()">초기화</button>
+
+    <div class="progress-wrap" id="progress-wrap" style="display:none;">
+      <div class="progress-labels">
+        <span id="prog-label">진행률</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="prog-fill" style="width:0%;background:var(--teal);"></div>
+      </div>
+    </div>
+
+    <div class="stats" id="stats-row" style="display:none;">
+      <div class="stat"><div class="stat-val" id="s-phase">-</div><div class="stat-lbl">단계</div></div>
+      <div class="stat"><div class="stat-val" id="s-elapsed">0h</div><div class="stat-lbl">경과</div></div>
+      <div class="stat"><div class="stat-val" id="s-end">-</div><div class="stat-lbl">종료</div></div>
+    </div>
+
+    <div class="done-msg" id="done-msg"></div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('milestone')">🧬 마일스톤</button>
+      <button class="tab" onclick="switchTab('meallog')">📋 식단 기록</button>
+      <button class="tab" onclick="switchTab('history')">📅 과거 기록</button>
+    </div>
+
+    <!-- Milestones -->
+    <div class="tab-panel active card" id="tab-milestone">
+      <div class="milestone-list" id="milestone-list"></div>
+    </div>
+
+    <!-- Meal log -->
+    <div class="tab-panel card" id="tab-meallog">
+      <div class="date-selector">
+        <label>날짜</label>
+        <input type="date" id="log-date">
+        <button class="date-today-btn" onclick="setToday()">오늘</button>
+      </div>
+
+      <div class="type-row">
+        <button class="type-btn active" id="type-food" onclick="setInputType('food')">🍽 음식</button>
+        <button class="type-btn" id="type-exercise" onclick="setInputType('exercise')">🏃 운동</button>
+      </div>
+
+      <div class="meal-input-row">
+        <input type="text" id="meal-name" placeholder="음식 이름" onkeydown="if(event.key==='Enter')addMeal()">
+        <input type="number" id="meal-kcal" placeholder="kcal" min="0" onkeydown="if(event.key==='Enter')addMeal()">
+        <input type="time" id="meal-time" onkeydown="if(event.key==='Enter')addMeal()">
+        <button onclick="addMeal()">추가</button>
+      </div>
+
+      <div class="meal-items" id="meal-items"></div>
+
+      <div class="meal-total-box">
+        <div class="meal-total-info">
+          섭취 <span style="color:#b87000;font-family:'DM Mono',monospace;" id="total-in">0</span> kcal<br>
+          소모 <span style="color:#0f9e6e;font-family:'DM Mono',monospace;" id="total-out">0</span> kcal
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:2px;">순 칼로리</div>
+          <div class="meal-total-net"><span id="meal-total">0</span> kcal</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="tab-panel card" id="tab-history">
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CIRC = 2 * Math.PI * 78;
+let interval = null, startTime = null, totalDur = 0, mode = null;
+let currentDate = todayStr();
+let inputType = 'food';
+
+function todayStr(){
+  return new Date().toISOString().slice(0,10);
+}
+function fmt2(n){ return String(n).padStart(2,'0'); }
+function fmtHMS(ms){
+  let s = Math.max(0, Math.floor(ms/1000));
+  return fmt2(Math.floor(s/3600))+':'+fmt2(Math.floor((s%3600)/60))+':'+fmt2(s%60);
+}
+function fmtHM(d){ return fmt2(d.getHours())+':'+fmt2(d.getMinutes()); }
+
+// --- Storage ---
+function getAllMeals(){
+  try { return JSON.parse(localStorage.getItem('ft_meals')||'{}'); } catch(e){ return {}; }
+}
+function getMealsForDate(date){
+  return getAllMeals()[date] || [];
+}
+function saveMealsForDate(date, meals){
+  const all = getAllMeals();
+  all[date] = meals;
+  const keys = Object.keys(all).sort();
+  if(keys.length > 30) delete all[keys[0]];
+  localStorage.setItem('ft_meals', JSON.stringify(all));
+}
+function saveTimer(){
+  if(!startTime) return;
+  localStorage.setItem('ft_timer', JSON.stringify({startTime, totalDur, mode}));
+}
+function loadTimer(){
+  try {
+    const d = JSON.parse(localStorage.getItem('ft_timer'));
+    if(!d) return;
+    startTime=d.startTime; totalDur=d.totalDur; mode=d.mode;
+    if(totalDur-(Date.now()-startTime)<=0){ localStorage.removeItem('ft_timer'); return; }
+    showStats(); tick();
+    interval=setInterval(tick,1000);
+    updateBtns();
+  } catch(e){}
+}
+function saveFastStart(){
+  localStorage.setItem('ft_fast_start', document.getElementById('fast-start').value);
+}
+function loadFastStart(){
+  const v = localStorage.getItem('ft_fast_start');
+  if(v){
+    document.getElementById('fast-start').value=v;
+    updateEatTime(v);
+  }
+}
+function updateEatTime(val){
+  const [h,m]=val.split(':').map(Number);
+  const d=new Date(); d.setHours(h,m,0,0);
+  d.setTime(d.getTime()+16*3600000);
+  document.getElementById('eat-start').value=fmt2(d.getHours())+':'+fmt2(d.getMinutes());
+}
+
+// --- Date selector ---
+function setToday(){
+  currentDate=todayStr();
+  document.getElementById('log-date').value=currentDate;
+  renderMeals();
+}
+function initDatePicker(){
+  const el=document.getElementById('log-date');
+  el.value=todayStr();
+  el.max=todayStr();
+  el.addEventListener('change',function(){
+    currentDate=this.value;
+    renderMeals();
+  });
+}
+
+// --- Input type ---
+function setInputType(t){
+  inputType=t;
+  document.getElementById('meal-name').placeholder = t==='food'?'음식 이름':'운동 종류 (예: 걷기 30분)';
+  document.getElementById('meal-kcal').placeholder = t==='food'?'kcal':'소모 kcal';
+  document.getElementById('type-food').className='type-btn'+(t==='food'?' active':'');
+  document.getElementById('type-exercise').className='type-btn'+(t==='exercise'?' active':'');
+}
+
+// --- Meal CRUD ---
+function addMeal(){
+  const name=document.getElementById('meal-name').value.trim();
+  const kcal=parseInt(document.getElementById('meal-kcal').value)||0;
+  const timeEl=document.getElementById('meal-time');
+  const now=new Date();
+  const time=timeEl.value||fmt2(now.getHours())+':'+fmt2(now.getMinutes());
+  if(!name) return;
+  const meals=getMealsForDate(currentDate);
+  meals.push({name,kcal,time,isExercise:inputType==='exercise',id:Date.now()});
+  saveMealsForDate(currentDate,meals);
+  document.getElementById('meal-name').value='';
+  document.getElementById('meal-kcal').value='';
+  timeEl.value='';
+  renderMeals();
+}
+function deleteMeal(date,id){
+  const meals=getMealsForDate(date).filter(m=>m.id!==id);
+  saveMealsForDate(date,meals);
+  renderMeals();
+}
+function renderMeals(){
+  const meals=getMealsForDate(currentDate);
+  const container=document.getElementById('meal-items');
+  const totalIn=meals.filter(m=>!m.isExercise).reduce((s,m)=>s+m.kcal,0);
+  const totalOut=meals.filter(m=>m.isExercise).reduce((s,m)=>s+m.kcal,0);
+  document.getElementById('total-in').textContent=totalIn;
+  document.getElementById('total-out').textContent=totalOut;
+  document.getElementById('meal-total').textContent=totalIn-totalOut;
+  container.innerHTML='';
+  if(meals.length===0){
+    container.innerHTML='<div class="meal-empty" style="font-size:12px;color:var(--muted);text-align:center;padding:20px 0;">기록이 없어요</div>';
+    return;
+  }
+  meals.forEach(m=>{
+    const div=document.createElement('div');
+    div.className='meal-item';
+    const icon=m.isExercise?'🏃':'';
+    const color=m.isExercise?'#0f9e6e':'#b87000';
+    const sign=m.isExercise?'-':'+';
+    div.innerHTML=`
+      <span class="meal-item-time">${m.time||''}</span>
+      <span class="meal-item-name">${icon} ${m.name}</span>
+      <span class="meal-item-kcal" style="color:${color};">${sign}${m.kcal}</span>
+      <button class="meal-item-del" onclick="deleteMeal('${currentDate}',${m.id})">✕</button>`;
+    container.appendChild(div);
+  });
+}
+
+// --- History ---
+function renderHistory(){
+  const container=document.getElementById('history-list');
+  const today=todayStr();
+  const all=getAllMeals();
+  const dates=Object.keys(all).sort().reverse();
+  if(dates.length===0){
+    container.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:24px 0;">아직 기록이 없어요</div>';
+    return;
+  }
+  container.innerHTML='';
+  dates.forEach(date=>{
+    const items=all[date]||[];
+    const totalIn=items.filter(m=>!m.isExercise).reduce((s,m)=>s+m.kcal,0);
+    const totalOut=items.filter(m=>m.isExercise).reduce((s,m)=>s+m.kcal,0);
+    const net=totalIn-totalOut;
+    const [y,mo,d]=date.split('-');
+    const isToday=date===today;
+    const label=`${mo}월 ${d}일${isToday?' (오늘)':''}`;
+    const section=document.createElement('div');
+    section.className='history-date-item';
+    const rows=items.map(m=>{
+      const icon=m.isExercise?'🏃':'🍽';
+      const color=m.isExercise?'#0f9e6e':'#b87000';
+      const sign=m.isExercise?'-':'+';
+      return `<div class="history-row">
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);width:36px;flex-shrink:0;">${m.time||''}</span>
+        <span style="flex:1;font-size:12px;color:var(--text);">${icon} ${m.name}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:${color};">${sign}${m.kcal} kcal</span>
+      </div>`;
+    }).join('');
+    section.innerHTML=`
+      <div class="history-date-header">
+        <span class="history-date-label">${label}</span>
+        <div class="history-date-summary">
+          섭취 <span style="color:#b87000;font-family:'DM Mono',monospace;">${totalIn}</span> ·
+          소모 <span style="color:#0f9e6e;font-family:'DM Mono',monospace;">${totalOut}</span> ·
+          순 <span style="font-family:'DM Mono',monospace;">${net}</span> kcal
+        </div>
+      </div>
+      ${rows||'<div style="font-size:11px;color:var(--muted);padding:4px 0;">기록 없음</div>'}`;
+    container.appendChild(section);
+  });
+}
+
+// --- Tabs ---
+function switchTab(name){
+  const names=['milestone','meallog','history'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(names[i]===name?' active':''));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='history') renderHistory();
+  if(name==='meallog') renderMeals();
+}
+
+// --- Timer ---
+const MILESTONES=[
+  {h:4,  icon:'🔋',title:'혈당 안정화',    desc:'인슐린 수치가 내려가고 혈당이 안정됩니다. 지방 연소 준비 단계.'},
+  {h:8,  icon:'🔥',title:'지방 연소 시작', desc:'글리코겐이 소진되고 체지방을 에너지로 사용하기 시작합니다.'},
+  {h:12, icon:'⚡',title:'케토시스 진입',  desc:'케톤체 생성이 활발해집니다. 집중력 향상, 뇌 에너지 효율 증가.'},
+  {h:14, icon:'🧹',title:'세포 청소 (오토파지)', desc:'손상된 세포를 분해·재활용하는 오토파지가 시작됩니다.'},
+  {h:16, icon:'🏆',title:'16시간 완료!',   desc:'목표 달성! 면역 기능 강화, 염증 감소, 호르몬 균형 효과.'},
+];
+
+function renderMilestones(elapsedH){
+  const list=document.getElementById('milestone-list');
+  list.innerHTML='';
+  MILESTONES.forEach(ms=>{
+    const reached=elapsedH>=ms.h;
+    const current=!reached&&elapsedH>=(ms.h-2)&&mode==='fast';
+    const div=document.createElement('div');
+    div.className='milestone'+(reached?' reached':current?' current':'');
+    const status=reached?'완료':current?'진행 중':'예정';
+    const bc=reached?'reached':current?'current':'upcoming';
+    div.innerHTML=`<div class="ms-icon">${reached?'✅':ms.icon}</div><div style="flex:1"><div class="ms-top"><span class="ms-hour">${ms.h}h</span><span class="ms-badge ${bc}">${status}</span></div><div class="ms-title">${ms.title}</div><div class="ms-desc">${ms.desc}</div></div>`;
+    list.appendChild(div);
+  });
+}
+
+function startNow(m){
+  mode=m; startTime=Date.now(); totalDur=(m==='fast'?16:8)*3600000;
+  saveTimer(); showStats(); tick();
+  if(interval) clearInterval(interval);
+  interval=setInterval(tick,1000);
+  updateBtns();
+}
+function startFromSchedule(){
+  const [fh,fm]=document.getElementById('fast-start').value.split(':').map(Number);
+  const now=new Date();
+  const midnight=new Date(now); midnight.setHours(0,0,0,0);
+  const nowMs=now-midnight;
+  const fastMs=fh*3600000+fm*60000;
+  const eatMs=(fastMs+16*3600000)%86400000;
+  function inRange(s,d,c){ const e=(s+d)%86400000; return e>s?c>=s&&c<e:c>=s||c<e; }
+  if(inRange(fastMs,16*3600000,nowMs)){
+    mode='fast'; totalDur=16*3600000;
+    startTime=Date.now()-((nowMs-fastMs+86400000)%86400000);
+  } else {
+    mode='eat'; totalDur=8*3600000;
+    startTime=Date.now()-((nowMs-eatMs+86400000)%86400000);
+  }
+  saveTimer(); showStats(); tick();
+  if(interval) clearInterval(interval);
+  interval=setInterval(tick,1000);
+  updateBtns();
+}
+function resetTimer(){
+  if(interval) clearInterval(interval);
+  interval=null; startTime=null; mode=null;
+  localStorage.removeItem('ft_timer');
+  document.getElementById('ring-time').textContent='--:--:--';
+  document.getElementById('ring-phase').textContent='대기 중';
+  document.getElementById('ring-end').textContent='시작해주세요';
+  document.getElementById('ring-fg').style.strokeDashoffset=CIRC;
+  document.getElementById('progress-wrap').style.display='none';
+  document.getElementById('stats-row').style.display='none';
+  document.getElementById('done-msg').textContent='';
+  renderMilestones(0); updateBtns();
+}
+function showStats(){
+  document.getElementById('progress-wrap').style.display='block';
+  document.getElementById('stats-row').style.display='grid';
+}
+function updateBtns(){
+  document.getElementById('btn-fast').className='mode-btn'+(mode==='fast'?' active-fast':'');
+  document.getElementById('btn-eat').className='mode-btn'+(mode==='eat'?' active-eat':'');
+}
+function tick(){
+  const elapsed=Date.now()-startTime;
+  const remaining=Math.max(0,totalDur-elapsed);
+  const pct=Math.min(1,elapsed/totalDur);
+  const isFast=mode==='fast';
+  const color=isFast?'#0f9e6e':'#b87000';
+  const endDate=new Date(startTime+totalDur);
+  document.getElementById('ring-phase').textContent=isFast?'단식 중':'식사 중';
+  document.getElementById('ring-time').textContent=fmtHMS(remaining);
+  document.getElementById('ring-end').textContent=fmtHM(endDate)+(isFast?' 식사 시작':' 단식 시작');
+  document.getElementById('ring-fg').style.strokeDashoffset=(CIRC*(1-pct)).toFixed(2);
+  document.getElementById('ring-fg').style.stroke=color;
+  document.getElementById('prog-fill').style.width=Math.round(pct*100)+'%';
+  document.getElementById('prog-fill').style.background=color;
+  document.getElementById('prog-label').textContent=isFast?'단식 진행률':'식사 진행률';
+  document.getElementById('prog-pct').textContent=Math.round(pct*100)+'%';
+  document.getElementById('s-phase').textContent=isFast?'단식':'식사';
+  document.getElementById('s-elapsed').textContent=(elapsed/3600000).toFixed(1)+'h';
+  document.getElementById('s-end').textContent=fmtHM(endDate);
+  if(isFast) renderMilestones(elapsed/3600000);
+  if(remaining===0){
+    clearInterval(interval);
+    document.getElementById('ring-phase').textContent=isFast?'단식 완료':'식사 종료';
+    document.getElementById('done-msg').textContent=isFast?'🎉 16시간 완료! 이제 드세요!':'식사 윈도우 종료. 단식을 시작하세요.';
+  }
+}
+
+// --- Fast start time listener ---
+document.getElementById('fast-start').addEventListener('change',function(){
+  updateEatTime(this.value);
+  saveFastStart();
+});
+
+// --- Init ---
+initDatePicker();
+loadFastStart();
+loadTimer();
+renderMilestones(startTime?(Date.now()-startTime)/3600000:0);
+renderMeals();
+// --- Service Worker 등록 ---
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

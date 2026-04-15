@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="40" fill="#0f9e6e"/>
+  <circle cx="96" cy="90" r="52" fill="none" stroke="white" stroke-width="10" stroke-opacity="0.3"/>
+  <circle cx="96" cy="90" r="52" fill="none" stroke="white" stroke-width="10"
+    stroke-dasharray="327" stroke-dashoffset="82"
+    stroke-linecap="round" transform="rotate(-90 96 90)"/>
+  <text x="96" y="84" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="white">16:8</text>
+  <text x="96" y="106" text-anchor="middle" font-family="sans-serif" font-size="13" fill="white" opacity="0.85">단식 타이머</text>
+  <rect x="60" y="148" width="72" height="8" rx="4" fill="white" opacity="0.25"/>
+</svg>
