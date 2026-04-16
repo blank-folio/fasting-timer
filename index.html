@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>16:8 단식 타이머</title>
+<title>단식 타이머</title>
 <meta name="theme-color" content="#0f9e6e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -137,6 +138,27 @@ body {
 .history-date-summary { font-size: 11px; color: var(--muted); text-align: right; line-height: 1.5; }
 .history-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .history-row:last-child { border-bottom: none; }
+
+/* Fasting mode selector */
+.fmode-row { display: flex; gap: 6px; margin-bottom: 1rem; }
+.fmode-btn { flex: 1; padding: 8px 0; font-size: 12px; font-family: 'Gowun Dodum', sans-serif; border-radius: var(--r); cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all 0.2s; }
+.fmode-btn.active { border-color: var(--teal); background: var(--teal-dim); color: var(--teal-dark); font-weight: 500; }
+
+/* Body chart */
+.body-input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.body-input-row { display: flex; align-items: center; gap: 8px; }
+.body-input-row label { font-size: 12px; color: var(--muted); width: 52px; flex-shrink: 0; }
+.body-input-row input { flex: 1; padding: 8px 10px; font-size: 13px; font-family: 'DM Mono', monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); outline: none; }
+.body-input-row span { font-size: 12px; color: var(--muted); width: 24px; flex-shrink: 0; }
+.body-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.body-stat { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 10px; text-align: center; }
+.body-stat-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.body-stat-val { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; }
+.body-stat-val.pos { color: #0f9e6e; }
+.body-stat-val.neg { color: #e24b4a; }
+.body-legend { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+.body-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.body-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -146,7 +168,12 @@ body {
   <div class="card">
     <div class="header">
       <h1>간헐적 단식</h1>
-      <span class="badge">16 : 8</span>
+      <span class="badge" id="mode-badge">16 : 8</span>
+    </div>
+
+    <div class="fmode-row">
+      <button class="fmode-btn active" id="fmode-16" onclick="setFastingMode(16,8)">16 : 8</button>
+      <button class="fmode-btn" id="fmode-18" onclick="setFastingMode(18,6)">18 : 6</button>
     </div>
 
     <div class="ring-wrap">
@@ -204,6 +231,7 @@ body {
       <button class="tab active" onclick="switchTab('milestone')">🧬 마일스톤</button>
       <button class="tab" onclick="switchTab('meallog')">📋 식단 기록</button>
       <button class="tab" onclick="switchTab('history')">📅 과거 기록</button>
+      <button class="tab" onclick="switchTab('body')">📊 체성분</button>
     </div>
 
     <!-- Milestones -->
@@ -249,15 +277,76 @@ body {
     <div class="tab-panel card" id="tab-history">
       <div id="history-list"></div>
     </div>
+
+    <!-- Body chart -->
+    <div class="tab-panel card" id="tab-body">
+      <div style="margin-bottom:10px;">
+        <input type="date" id="body-date" style="font-size:12px;font-family:'DM Mono',monospace;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;outline:none;color-scheme:light;">
+      </div>
+      <div class="body-input-group">
+        <div class="body-input-row">
+          <label>체중</label>
+          <input type="number" id="body-weight" placeholder="kg" step="0.1">
+          <span>kg</span>
+        </div>
+        <div class="body-input-row">
+          <label>체지방</label>
+          <input type="number" id="body-fat" placeholder="%" step="0.1">
+          <span>%</span>
+        </div>
+        <div class="body-input-row">
+          <label>근육량</label>
+          <input type="number" id="body-muscle" placeholder="kg" step="0.1">
+          <span>kg</span>
+        </div>
+      </div>
+      <button onclick="addBodyEntry()" style="width:100%;padding:9px;font-size:13px;font-family:'Gowun Dodum',sans-serif;background:var(--teal);color:#fff;border:none;border-radius:var(--r);cursor:pointer;margin-bottom:14px;">+ 기록 추가</button>
+
+      <div class="body-stats">
+        <div class="body-stat"><div class="body-stat-label">체중 변화</div><div class="body-stat-val" id="bd-weight">-</div></div>
+        <div class="body-stat"><div class="body-stat-label">체지방 변화</div><div class="body-stat-val" id="bd-fat">-</div></div>
+        <div class="body-stat"><div class="body-stat-label">근육량 변화</div><div class="body-stat-val" id="bd-muscle">-</div></div>
+      </div>
+
+      <div class="body-legend">
+        <span class="body-legend-item"><span class="body-legend-dot" style="background:#1D9E75;"></span>체중</span>
+        <span class="body-legend-item"><span class="body-legend-dot" style="background:#E24B4A;"></span>체지방</span>
+        <span class="body-legend-item"><span class="body-legend-dot" style="background:#378ADD;"></span>근육량</span>
+      </div>
+      <div style="position:relative;width:100%;height:220px;">
+        <canvas id="body-chart" role="img" aria-label="체성분 변화량 그래프">체중, 체지방, 근육량의 첫 기록 대비 변화량.</canvas>
+      </div>
+      <div id="body-empty" style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;display:none;">기록을 추가하면 그래프가 표시돼요</div>
+    </div>
   </div>
 
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 
 <script>
 const CIRC = 2 * Math.PI * 78;
 let interval = null, startTime = null, totalDur = 0, mode = null;
 let currentDate = todayStr();
 let inputType = 'food';
+let fastHours = 16, eatHours = 8;
+
+function setFastingMode(fh, eh){
+  fastHours = fh; eatHours = eh;
+  localStorage.setItem('ft_mode', JSON.stringify({fastHours:fh, eatHours:eh}));
+  document.getElementById('fmode-16').className='fmode-btn'+(fh===16?' active':'');
+  document.getElementById('fmode-18').className='fmode-btn'+(fh===18?' active':'');
+  document.getElementById('mode-badge').textContent=fh+' : '+eh;
+  updateEatTime(document.getElementById('fast-start').value);
+  const lastMs=document.getElementById('done-msg').textContent;
+  if(lastMs) document.getElementById('done-msg').textContent=fh+'시간 완료! 이제 드세요!';
+}
+function loadFastingMode(){
+  try {
+    const d=JSON.parse(localStorage.getItem('ft_mode')||'{}');
+    if(d.fastHours) setFastingMode(d.fastHours, d.eatHours);
+  } catch(e){}
+}
 
 function todayStr(){
   return new Date().toISOString().slice(0,10);
@@ -311,7 +400,7 @@ function loadFastStart(){
 function updateEatTime(val){
   const [h,m]=val.split(':').map(Number);
   const d=new Date(); d.setHours(h,m,0,0);
-  d.setTime(d.getTime()+16*3600000);
+  d.setTime(d.getTime()+fastHours*3600000);
   document.getElementById('eat-start').value=fmt2(d.getHours())+':'+fmt2(d.getMinutes());
 }
 
@@ -436,12 +525,78 @@ function renderHistory(){
 
 // --- Tabs ---
 function switchTab(name){
-  const names=['milestone','meallog','history'];
+  const names=['milestone','meallog','history','body'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.className='tab'+(names[i]===name?' active':''));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if(name==='history') renderHistory();
   if(name==='meallog') renderMeals();
+  if(name==='body') renderBodyChart();
+}
+
+// --- Body chart ---
+let bodyChart = null;
+function getBodyEntries(){ try{ return JSON.parse(localStorage.getItem('ft_body')||'[]'); }catch(e){ return []; } }
+function saveBodyEntries(entries){ localStorage.setItem('ft_body', JSON.stringify(entries)); }
+
+function addBodyEntry(){
+  const date=document.getElementById('body-date').value;
+  const weight=parseFloat(document.getElementById('body-weight').value);
+  const fat=parseFloat(document.getElementById('body-fat').value);
+  const muscle=parseFloat(document.getElementById('body-muscle').value);
+  if(!date||isNaN(weight)||isNaN(fat)||isNaN(muscle)) return;
+  const entries=getBodyEntries().filter(e=>e.date!==date);
+  entries.push({date,weight,fat,muscle});
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  saveBodyEntries(entries);
+  ['body-weight','body-fat','body-muscle'].forEach(id=>document.getElementById(id).value='');
+  renderBodyChart();
+}
+
+function renderBodyChart(){
+  const entries=getBodyEntries();
+  const empty=document.getElementById('body-empty');
+  if(entries.length<1){ empty.style.display='block'; return; }
+  empty.style.display='none';
+  const base=entries[0];
+  const labels=entries.map(e=>e.date.slice(5).replace('-','/'));
+  const wData=entries.map(e=>parseFloat((e.weight-base.weight).toFixed(1)));
+  const fData=entries.map(e=>parseFloat((e.fat-base.fat).toFixed(1)));
+  const mData=entries.map(e=>parseFloat((e.muscle-base.muscle).toFixed(1)));
+
+  const last=entries[entries.length-1];
+  const pairs=[
+    ['bd-weight', last.weight-base.weight, 'kg', true],
+    ['bd-fat',    last.fat-base.fat,        '%',  true],
+    ['bd-muscle', last.muscle-base.muscle,  'kg', false],
+  ];
+  pairs.forEach(([id,val,unit,lessIsBetter])=>{
+    const el=document.getElementById(id);
+    el.textContent=(val>0?'+':'')+val.toFixed(1)+unit;
+    el.className='body-stat-val'+(val===0?'':( (lessIsBetter?val<0:val>0) ?'pos':'neg'));
+  });
+
+  const cfg={
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'체중', data:wData, borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0.07)', tension:0.3, pointRadius:3, pointBackgroundColor:'#1D9E75', borderDash:[]},
+        {label:'체지방', data:fData, borderColor:'#E24B4A', backgroundColor:'rgba(226,75,74,0.07)', tension:0.3, pointRadius:3, pointBackgroundColor:'#E24B4A', borderDash:[4,3]},
+        {label:'근육량', data:mData, borderColor:'#378ADD', backgroundColor:'rgba(55,138,221,0.07)', tension:0.3, pointRadius:3, pointBackgroundColor:'#378ADD', borderDash:[2,2]},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y>0?'+':''}${ctx.parsed.y.toFixed(1)}`}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, maxRotation:45}},
+        y:{grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, callback:v=>(v>0?'+':'')+v.toFixed(1)}}
+      }
+    }
+  };
+  if(bodyChart) bodyChart.destroy();
+  bodyChart=new Chart(document.getElementById('body-chart'), cfg);
 }
 
 // --- Timer ---
@@ -469,7 +624,7 @@ function renderMilestones(elapsedH){
 }
 
 function startNow(m){
-  mode=m; startTime=Date.now(); totalDur=(m==='fast'?16:8)*3600000;
+  mode=m; startTime=Date.now(); totalDur=(m==='fast'?fastHours:eatHours)*3600000;
   saveTimer(); showStats(); tick();
   if(interval) clearInterval(interval);
   interval=setInterval(tick,1000);
@@ -481,13 +636,13 @@ function startFromSchedule(){
   const midnight=new Date(now); midnight.setHours(0,0,0,0);
   const nowMs=now-midnight;
   const fastMs=fh*3600000+fm*60000;
-  const eatMs=(fastMs+16*3600000)%86400000;
+  const eatMs=(fastMs+fastHours*3600000)%86400000;
   function inRange(s,d,c){ const e=(s+d)%86400000; return e>s?c>=s&&c<e:c>=s||c<e; }
-  if(inRange(fastMs,16*3600000,nowMs)){
-    mode='fast'; totalDur=16*3600000;
+  if(inRange(fastMs,fastHours*3600000,nowMs)){
+    mode='fast'; totalDur=fastHours*3600000;
     startTime=Date.now()-((nowMs-fastMs+86400000)%86400000);
   } else {
-    mode='eat'; totalDur=8*3600000;
+    mode='eat'; totalDur=eatHours*3600000;
     startTime=Date.now()-((nowMs-eatMs+86400000)%86400000);
   }
   saveTimer(); showStats(); tick();
@@ -539,7 +694,7 @@ function tick(){
   if(remaining===0){
     clearInterval(interval);
     document.getElementById('ring-phase').textContent=isFast?'단식 완료':'식사 종료';
-    document.getElementById('done-msg').textContent=isFast?'🎉 16시간 완료! 이제 드세요!':'식사 윈도우 종료. 단식을 시작하세요.';
+    document.getElementById('done-msg').textContent=isFast?`🎉 ${fastHours}시간 완료! 이제 드세요!`:'식사 윈도우 종료. 단식을 시작하세요.';
   }
 }
 
@@ -552,9 +707,12 @@ document.getElementById('fast-start').addEventListener('change',function(){
 // --- Init ---
 initDatePicker();
 loadFastStart();
+loadFastingMode();
 loadTimer();
 renderMilestones(startTime?(Date.now()-startTime)/3600000:0);
 renderMeals();
+document.getElementById('body-date').value=todayStr();
+document.getElementById('body-date').max=todayStr();
 // --- Service Worker 등록 ---
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
